@@ -193,50 +193,89 @@ def create_kpi_cards(current_metrics, prev_metrics):
 
 def create_revenue_trend_chart(current_data, prev_data):
     """Create revenue trend line chart."""
-    # Prepare current period data
-    current_monthly = (
-        current_data[current_data['order_status'] == 'delivered']
-        .groupby(current_data['order_purchase_timestamp'].dt.to_period('M'))['price']
-        .sum()
-        .reset_index()
-    )
-    current_monthly['month'] = current_monthly['order_purchase_timestamp'].dt.month
-    
-    # Prepare previous period data
-    prev_monthly = (
-        prev_data[prev_data['order_status'] == 'delivered']
-        .groupby(prev_data['order_purchase_timestamp'].dt.to_period('M'))['price']
-        .sum()
-        .reset_index()
-    )
-    prev_monthly['month'] = prev_monthly['order_purchase_timestamp'].dt.month
-    
-    # Create chart
     fig = go.Figure()
     
-    # Current period line (solid)
-    fig.add_trace(go.Scatter(
-        x=current_monthly['month'],
-        y=current_monthly['price'],
-        mode='lines+markers',
-        name='Current Period',
-        line=dict(color='#2E86AB', width=3),
-        marker=dict(size=8)
-    ))
+    # Check if we have data
+    if current_data.empty:
+        fig.add_annotation(
+            text="No data available for selected period",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, xanchor='center', yanchor='middle',
+            showarrow=False, font=dict(size=16)
+        )
+        fig.update_layout(
+            title="Revenue Trend Comparison",
+            height=400,
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False)
+        )
+        return fig
     
-    # Previous period line (dashed)
-    fig.add_trace(go.Scatter(
-        x=prev_monthly['month'],
-        y=prev_monthly['price'],
-        mode='lines+markers',
-        name='Previous Period',
-        line=dict(color='#A23B72', width=2, dash='dash'),
-        marker=dict(size=6)
-    ))
+    # Determine aggregation level based on date range
+    current_delivered = current_data[current_data['order_status'] == 'delivered']
+    date_range = (current_delivered['order_purchase_timestamp'].max() - 
+                 current_delivered['order_purchase_timestamp'].min()).days
+    
+    if date_range <= 90:  # 3 months or less - use weekly
+        freq = 'W'
+        date_format = '%Y-%m-%d'
+        title_suffix = "(Weekly)"
+    elif date_range <= 730:  # 2 years or less - use monthly
+        freq = 'M'
+        date_format = '%Y-%m'
+        title_suffix = "(Monthly)"
+    else:  # More than 2 years - use quarterly
+        freq = 'Q'
+        date_format = '%Y-Q%q'
+        title_suffix = "(Quarterly)"
+    
+    # Prepare current period data
+    if not current_delivered.empty:
+        current_grouped = (
+            current_delivered
+            .groupby(pd.Grouper(key='order_purchase_timestamp', freq=freq))['price']
+            .sum()
+            .reset_index()
+        )
+        current_grouped = current_grouped[current_grouped['price'] > 0]
+        
+        if not current_grouped.empty:
+            fig.add_trace(go.Scatter(
+                x=current_grouped['order_purchase_timestamp'],
+                y=current_grouped['price'],
+                mode='lines+markers',
+                name='Current Period',
+                line=dict(color='#2E86AB', width=3),
+                marker=dict(size=8),
+                hovertemplate='<b>%{x}</b><br>Revenue: $%{y:,.0f}<extra></extra>'
+            ))
+    
+    # Prepare previous period data
+    if not prev_data.empty:
+        prev_delivered = prev_data[prev_data['order_status'] == 'delivered']
+        if not prev_delivered.empty:
+            prev_grouped = (
+                prev_delivered
+                .groupby(pd.Grouper(key='order_purchase_timestamp', freq=freq))['price']
+                .sum()
+                .reset_index()
+            )
+            prev_grouped = prev_grouped[prev_grouped['price'] > 0]
+            
+            if not prev_grouped.empty:
+                fig.add_trace(go.Scatter(
+                    x=prev_grouped['order_purchase_timestamp'],
+                    y=prev_grouped['price'],
+                    mode='lines+markers',
+                    name='Previous Period',
+                    line=dict(color='#A23B72', width=2, dash='dash'),
+                    marker=dict(size=6),
+                    hovertemplate='<b>%{x}</b><br>Revenue: $%{y:,.0f}<extra></extra>'
+                ))
     
     fig.update_layout(
-        title="Revenue Trend Comparison",
-        xaxis_title="Month",
+        title=f"Revenue Trend Comparison {title_suffix}",
+        xaxis_title="Date",
         yaxis_title="Revenue",
         showlegend=True,
         height=400,
