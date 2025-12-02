@@ -73,14 +73,6 @@ def load_dashboard_data(start_date, end_date):
     """Load and cache data for the dashboard."""
     try:
         # Load data
-        import os
-        st.write(f"Current working directory: {os.getcwd()}")
-        st.write(f"Files in current directory: {os.listdir('.')}")
-        if os.path.exists('ecommerce_data'):
-            st.write(f"Files in ecommerce_data: {os.listdir('ecommerce_data')}")
-        else:
-            st.write("ecommerce_data directory does not exist")
-        
         loader = EcommerceDataLoader('ecommerce_data/')
         loader.load_raw_data()
         loader.clean_and_transform_data()
