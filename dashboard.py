@@ -218,36 +218,38 @@ def create_revenue_trend_chart(current_data, prev_data):
     
     if date_range <= 90:  # 3 months or less - use weekly
         freq = 'W'
-        date_format = '%Y-%m-%d'
         title_suffix = "(Weekly)"
     elif date_range <= 730:  # 2 years or less - use monthly
         freq = 'M'
-        date_format = '%Y-%m'
         title_suffix = "(Monthly)"
     else:  # More than 2 years - use quarterly
         freq = 'Q'
-        date_format = '%Y-Q%q'
         title_suffix = "(Quarterly)"
     
     # Prepare current period data
     if not current_delivered.empty:
         current_grouped = (
             current_delivered
-            .groupby(pd.Grouper(key='order_purchase_timestamp', freq=freq))['price']
+            .groupby(current_delivered['order_purchase_timestamp'].dt.to_period(freq))['price']
             .sum()
             .reset_index()
         )
         current_grouped = current_grouped[current_grouped['price'] > 0]
         
         if not current_grouped.empty:
+            # Create normalized x-axis (period number)
+            current_grouped['period_num'] = range(1, len(current_grouped) + 1)
+            current_grouped['period_label'] = current_grouped['order_purchase_timestamp'].astype(str)
+            
             fig.add_trace(go.Scatter(
-                x=current_grouped['order_purchase_timestamp'],
+                x=current_grouped['period_num'],
                 y=current_grouped['price'],
                 mode='lines+markers',
                 name='Current Period',
                 line=dict(color='#2E86AB', width=3),
                 marker=dict(size=8),
-                hovertemplate='<b>%{x}</b><br>Revenue: $%{y:,.0f}<extra></extra>'
+                customdata=current_grouped['period_label'],
+                hovertemplate='<b>%{customdata}</b><br>Revenue: $%{y:,.0f}<extra></extra>'
             ))
     
     # Prepare previous period data
@@ -256,26 +258,31 @@ def create_revenue_trend_chart(current_data, prev_data):
         if not prev_delivered.empty:
             prev_grouped = (
                 prev_delivered
-                .groupby(pd.Grouper(key='order_purchase_timestamp', freq=freq))['price']
+                .groupby(prev_delivered['order_purchase_timestamp'].dt.to_period(freq))['price']
                 .sum()
                 .reset_index()
             )
             prev_grouped = prev_grouped[prev_grouped['price'] > 0]
             
             if not prev_grouped.empty:
+                # Create normalized x-axis (period number)
+                prev_grouped['period_num'] = range(1, len(prev_grouped) + 1)
+                prev_grouped['period_label'] = prev_grouped['order_purchase_timestamp'].astype(str)
+                
                 fig.add_trace(go.Scatter(
-                    x=prev_grouped['order_purchase_timestamp'],
+                    x=prev_grouped['period_num'],
                     y=prev_grouped['price'],
                     mode='lines+markers',
                     name='Previous Period',
                     line=dict(color='#A23B72', width=2, dash='dash'),
                     marker=dict(size=6),
-                    hovertemplate='<b>%{x}</b><br>Revenue: $%{y:,.0f}<extra></extra>'
+                    customdata=prev_grouped['period_label'],
+                    hovertemplate='<b>%{customdata}</b><br>Revenue: $%{y:,.0f}<extra></extra>'
                 ))
     
     fig.update_layout(
         title=f"Revenue Trend Comparison {title_suffix}",
-        xaxis_title="Date",
+        xaxis_title="Period",
         yaxis_title="Revenue",
         showlegend=True,
         height=400,
