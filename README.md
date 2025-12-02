@@ -3,7 +3,7 @@
 An interactive Streamlit dashboard for comprehensive e-commerce data analysis, featuring real-time KPIs, revenue trends, and customer insights.
 
 ## 🚀 Live Demo
-**[🔗 Click here to view the live dashboard](https://ecommerce-analytics-dashboard.streamlit.app)**
+**[🔗 Click here to view the live dashboard](https://ecommerce-analytics-dashboard-dibzffpvzknubsjqdvgu5y.streamlit.app)**
 
 *Try the interactive features: adjust date ranges, explore different metrics, and analyze business performance in real-time!*
 
